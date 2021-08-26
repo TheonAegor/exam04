@@ -1,7 +1,0 @@
-make --dry-run --always-make --keep-going --print-directory
-make: Entering directory '/home/taegor/school21/level4/cpp/cpp_01/ex01'
-mkdir -p obj
-g++ -Wall -Werror -Wextra -Iincludes -c crappy.cpp  -o obj/crappy.o
-g++ -Wall -Werror -Wextra -Iincludes -o crappy  obj/crappy.o 
-make: Leaving directory '/home/taegor/school21/level4/cpp/cpp_01/ex01'
- 

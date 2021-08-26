@@ -79,8 +79,6 @@ int	push_list(t_list **list, char *arg)
 	new = malloc(sizeof(t_list));
 	new->len = 0;
 	new->type = TYPE_NONE;
-	new->pipes[0] = 0;
-	new->pipes[1] = 1;
 	new->next = NULL;
 	new->prev = NULL;
 	if ((*list))
@@ -144,42 +142,42 @@ int	show_error(char *str)
 	return (EXIT_SUCCESS);
 }
 
-int	exit_fatal(void)
+void	exit_fatal(void)
 {
 	show_error("error: fatal\n");
-	return (EXIT_FAILURE);
+	exit(EXIT_FAILURE);
 }
 
 int	exec_cmd(t_list *cmd, char **env)
 {
 	pid_t	pid;
-	int		ret;
 	int		pipe_open;
 	int		status;
 
-	ret = EXIT_FAILURE;
+	pipe_open = 0;
 	if (cmd->type == TYPE_PIPE || (cmd->prev && cmd->prev->type == TYPE_PIPE))
 	{
 		pipe_open = 1;
 		if(pipe(cmd->pipes))
-			return (exit_fatal());
+			exit_fatal();
 	}
 	pid = fork();
 	if (pid == -1)
-		return (exit_fatal());
+		exit_fatal();
 	else if (pid == 0)
 	{
 		if (cmd->type == TYPE_PIPE && dup2(cmd->pipes[STD_OUT], STD_OUT) < 0)
-			return (exit_fatal());
+			exit_fatal();
 		if (cmd->prev && cmd->prev->type == TYPE_PIPE && dup2(cmd->pipes[STD_IN], STD_IN) < 0)
-			return (exit_fatal());
-		if ((ret = execve(cmd->args[0], cmd->args, env)) < 0)
+			exit_fatal();
+		if (execve(cmd->args[0], cmd->args, env) < 0)
 		{
 			show_error("error: cannot execute ");
 			show_error(cmd->args[0]);
 			show_error("\n");
+			exit(EXIT_FAILURE);
 		}
-		exit(ret);
+		exit(EXIT_SUCCESS);
 	}
 	else
 	{
@@ -192,10 +190,8 @@ int	exec_cmd(t_list *cmd, char **env)
 		}
 		if (cmd->prev && cmd->prev->type == TYPE_PIPE)
 			close(cmd->pipes[STD_OUT]);
-		if (WIFEXITED(status))
-			ret = WEXITSTATUS(status);
 	}
-	return (ret);
+	return (EXIT_SUCCESS);
 }
 
 int	exec_cmds(t_list *cmd, char **env)
@@ -227,22 +223,97 @@ int	exec_cmds(t_list *cmd, char **env)
 	return (ret);
 }
 
+/*
+void exit_execve(char *str)
+{
+	write(STD_ERR, "error: cannot execute ", ft_strlen("error: cannot execute "));
+	write(STD_ERR, str, ft_strlen(str));
+	write(STD_ERR, "\n", 1);
+	exit(EXIT_FAILURE);
+}
+
+void exec_cmd(t_list *temp, char **env)
+{
+	pid_t pid;
+	int status;
+	int pipe_open;
+
+	pipe_open = 0;
+	if (temp->type == TYPE_PIPE || (temp->prev && temp->prev->type == TYPE_PIPE))
+	{
+		pipe_open = 1;
+		if (pipe(temp->pipes))
+			exit_fatal();
+	}
+	pid = fork();
+	if (pid < 0)
+		exit_fatal();
+	else if (pid == 0) //child
+	{
+		if (temp->type == TYPE_PIPE && dup2(temp->pipes[STD_OUT], STD_OUT) < 0)
+			exit_fatal();
+		if (temp->prev && temp->prev->type == TYPE_PIPE && dup2(temp->prev->pipes[STD_IN], STD_IN) < 0)
+			exit_fatal();
+		if ((execve(temp->args[0], temp->args, env)) < 0)
+			exit_execve(temp->args[0]);
+		exit(EXIT_SUCCESS);
+	}
+	else //parent
+	{
+		waitpid(pid, &status, 0);
+		if (pipe_open)
+		{
+			close(temp->pipes[STD_OUT]);
+			if (!temp->next || temp->type == TYPE_BREAK)
+				close(temp->pipes[STD_IN]);
+		}
+		if (temp->prev && temp->prev->type == TYPE_PIPE)
+			close(temp->prev->pipes[STD_IN]);
+	}
+}
+
+void exec_cmds(t_list *ptr, char **env)
+{
+	t_list *temp;
+
+	temp = ptr;
+	while (temp)
+	{
+		if (strcmp("cd", temp->args[0]) == 0)
+		{
+			if (temp->len < 2)
+				show_error("lol");
+			else if (chdir(temp->args[1]))
+				show_error("lol");
+		}
+		else
+			exec_cmd(temp, env);
+		temp = temp->next;
+	}
+}
+*/
+
 int	main(int argc, char **argv, char **envp)
 {
 	int	i;
+	int	ret;
 	t_list *cmd;
 
 	i = 0;
 	cmd = NULL;
+	ret = EXIT_FAILURE;
 	if (argc <= 1)
 		return (EXIT_SUCCESS);
 	while (++i < argc)
+	{
+		printf("%s\n", argv[i]);
 		parcer(&cmd, argv[i]);
-	rewind_lists(&cmd);
-//	print_cmds(cmd);
+	}
 	if (cmd)
 	{
+		rewind_lists(&cmd);
+		print_cmds(cmd);
 		exec_cmds(cmd, envp);
 	}
-	return (EXIT_SUCCESS);
+	return (ret);
 }
